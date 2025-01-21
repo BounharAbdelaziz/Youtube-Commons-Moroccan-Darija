@@ -1,0 +1,16 @@
+huggingface-hub
+transformers
+datasets
+torchaudio
+audiomentations
+tqdm
+pandas
+librosa
+jiwer
+google-generativeai
+python-dotenv
+pydub
+torch
+protobuf # for seamless to work
+google # for seamless to work
+nemo_toolkit['asr'] # for wer and cer
