@@ -1,3 +1,5 @@
+    
+from datasets import Dataset
 from dataclasses import dataclass
 from typing import Any, List, Dict, Union
 import torch
@@ -8,6 +10,7 @@ from audiomentations import (
 )
 import librosa
 import numpy as np
+from tqdm import tqdm
 import os
 
 # ----------------------------------------------------------------- #
@@ -19,6 +22,7 @@ class DataCollatorSpeechSeq2SeqWithPadding:
     processor: Any
 
     def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
+        
         # split inputs and labels since they have to be of different lengths and need different padding methods
         # first treat the audio inputs by simply returning torch tensors
         input_features = [{"input_features": feature["input_features"]} for feature in features]
@@ -138,7 +142,7 @@ class DataCollatorSpeechSeq2SeqWithPaddingCurriculum:
 
         batch["labels"] = labels
         return batch
-   
+    
     
 def resample_audio(audio_signals, sample_rates, target_sr=16000):
     """Resample audio signals to target sampling rate."""
@@ -161,8 +165,8 @@ def prepare_dataset(batch, processor, audio_column="audio", txt_column="transcri
     if isinstance(audios, dict): 
         audios = [audios]  # Convert to a list for consistency 
      
-    # Extract audio signals and sampling rates as lists (not numpy array) 
-    audio_signals = [audio['array'] for audio in audios] 
+    # Extract audio signals and sampling rates as lists
+    audio_signals = [np.array(audio['array'], dtype=np.float32) for audio in audios]  # Convert to numpy arrays here
     sample_rates = [audio['sampling_rate'] for audio in audios] 
  
     # Normalize audio signals 
@@ -195,7 +199,7 @@ def prepare_dataset(batch, processor, audio_column="audio", txt_column="transcri
  
     batch["input_features"] = input_features[0] 
     batch["labels"] = labels[0] 
-    return batch 
+    return batch
      
 def prepare_datasets(dataset, processor): 
     """Load and prepare all datasets with proper error handling.""" 
@@ -211,14 +215,54 @@ def prepare_datasets(dataset, processor):
                 # num_proc=4, 
             ) 
         
-        print(processed_dataset['train'][0])
+        # print(processed_dataset['train'][0])
         print("Dataset preparation completed!") 
         return processed_dataset 
  
     except Exception as e: 
         print(f"Error in dataset preparation: {str(e)}") 
         raise
+
+def apply_augmentation(dataset, num_augmented_per_sample, phase_probabilities):
+    augmented_data = []
     
+    # Use tqdm to show progress
+    for sample in tqdm(dataset, desc="Augmenting Samples", total=len(dataset)):
+        # Ensure original audio is float32
+        audio = sample["audio"]["array"].astype(np.float32)
+        transcription = sample["transcription"]
+        
+        # Original sample
+        augmented_data.append({
+            "audio": audio,
+            "transcription": transcription
+        })
+        
+        # print(f'Original audio : {audio}')
+        # print(f'Original audio shape: {audio.shape}')
+        # Augmented samples
+        for _ in range(num_augmented_per_sample):
+            # choose a phase based on the probabilities
+            phase = np.random.choice([0, 1, 2], p=phase_probabilities)
+            # get augmentation pipeline
+            augmenter = get_augmentation_pipeline(phase)
+            # Ensure augmented audio is also float32
+            augmented_audio = augmenter(samples=audio, sample_rate=16000).astype(np.float32)
+            # print(f'augmented audio : {augmented_audio}')
+            # print(f'Augmented audio shape: {augmented_audio.shape}')
+            augmented_data.append({
+                "audio": augmented_audio,
+                "transcription": transcription
+            })
+
+    # Create a dataset with Audio type at 16 kHz
+    augmented_dataset = Dataset.from_dict({
+        "audio": [{"array": entry["audio"], "sampling_rate": 16000} for entry in augmented_data],
+        "transcription": [entry["transcription"] for entry in augmented_data]
+    })
+    
+    return augmented_dataset
+
 def apply_curriculum_augmentation(audio, sample_rate, phase_probabilities):
     """Applies augmentation using complex synthetic noise combinations depending on the sampled phase."""
     
@@ -259,6 +303,7 @@ def get_augmentation_pipeline(phase):
             )
         ])
         return light_augment
+    
     elif phase == 2:
         # More complex noise patterns for advanced augmentation
         strong_augment = Compose([

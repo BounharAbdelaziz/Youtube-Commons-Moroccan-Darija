@@ -7,6 +7,7 @@ from dataset import (
     DataCollatorSpeechSeq2SeqWithPadding,
     prepare_datasets,
     DataCollatorSpeechSeq2SeqWithPaddingCurriculum,
+    apply_augmentation,
 )
 import wandb
 import os
@@ -37,7 +38,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 if __name__ == "__main__":
     
-    model_size = "large-turbo" # base large large-turbo small base tiny
+    model_size = "large" # base large large-turbo small base tiny
     # current version of training: a version is usually a new training strategy or new data
     version = "v1.6" 
     # in v1.5 we train with frozen F.E in
@@ -49,16 +50,19 @@ if __name__ == "__main__":
     # 4: BS of 256 and data aug and curr training
     # 5: recover large-v1.4
     # 6: apply curriculum training
+    # 7: increase batch size from 64 to 256 for large model
+    # 8: increase batch size from 256 to 512 for large model
+    # 9: use additive augmented samples in training set so more data is used from the augmented samples
     
-    index_model = "6" 
+    index_model = "9" 
     # project name that will appear in WandB
     project_name = f'{model_size}_{version}'
     # metric that indicates best model
     metric_for_best_model = "wer"
     
     # do curriculum training
-    CURRICULUM_TRAINING = True
-    # CURRICULUM_TRAINING = False
+    # CURRICULUM_TRAINING = True
+    CURRICULUM_TRAINING = False
     
     # probability of appliying light, moderate or heavy augmentations per phase
     probabilities_per_phase_dict = {
@@ -67,6 +71,13 @@ if __name__ == "__main__":
         "2": [0.3, 0.35, 0.35]  # Heavier augmentations
     }
 
+    # add new augmented samples to the training set
+    DO_ADD_AUGMENTED_SAMPLES = True
+    # DO_ADD_AUGMENTED_SAMPLES = False
+    num_augmented_per_sample= 4
+    phase_probabilities= [0.45, 0.35, 0.2]
+    
+    
     # DEBUG = True
     DEBUG = False
     
@@ -132,7 +143,7 @@ if __name__ == "__main__":
         "base": 1,                  # 256 effective batch size
         "small": 1,                 # 128 effective batch size
         "large-turbo": 4,           # 128 effective batch size
-        "large": 4,                 # 64 effective batch size
+        "large": 16,                # 256 effective batch size
     }
     
     # Add gradient clipping settings
@@ -179,11 +190,11 @@ if __name__ == "__main__":
     save_strategy='steps'
     # warmup_ratio = 0.1 # 10% of total steps
     warmup_steps = 10
-    logging_steps = 10
-    eval_steps = 25
-    save_steps = 25
+    logging_steps = 5
+    eval_steps = 10
+    save_steps = 10
     lr_scheduler_type = "linear" #"cosine"
-    run_name = f"{model_size}-{version}-ep-{total_training_epochs}-bs-{batch_size}-g_acc-{gradient_accumulation_steps}-data-aug-curr-training-0.25-0.70-0.30" #-wd-{weight_decay}"
+    run_name = f"{model_size}-{version}-ep-{total_training_epochs}-bs-{batch_size}-g_acc-{gradient_accumulation_steps}-additive-data-aug" #-wd-{weight_decay}"
 
     # start a new wandb run to track this script
     wandb.init(
@@ -341,8 +352,19 @@ if __name__ == "__main__":
         )
         
     else:
-        print("[INFO] Curriculum training disabled...")
-        print("[INFO] Preparing datasets...")
+        
+        if DO_ADD_AUGMENTED_SAMPLES:
+            print("[INFO] Curriculum training disabled, but adding augmented samples to training set...")
+            print(f"[INFO] Started augmenting training dataset, original size {len(dataset['train'])}...")
+            
+            # apply data augmentation
+            dataset["train"] = apply_augmentation(dataset["train"], num_augmented_per_sample, phase_probabilities)
+            print(f"[INFO] Ended augmenting training dataset, new size {len(dataset['train'])}...")
+            
+        else:
+            print("[INFO] Curriculum training disabled...")
+            
+        print("[INFO] Preparing datasets...")            
         # prepare data for training
         processed_dataset = prepare_datasets(dataset, processor)
         
