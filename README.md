@@ -1,10 +1,24 @@
 # YouTube Commons Project for Moroccan Darija
+
 This project automates the download and transcription of Creative Commons (CC-BY) licensed videos from selected Moroccan YouTube channels. The audio content is transcribed using Gemini with support for code-switching between Darija, French, and English. Proper credit is given to all content creators.
 
+Additionally, this repository includes code for training and evaluating speech-to-text (STT) models for Moroccan Darija, along with a Hugging Face Space for testing them interactively.
+
 ## Features
+
 - **Automated Download**: Fetches CC-BY licensed videos only.
 - **Accurate Transcription**: Uses Gemini for multi-language transcription.
 - **Content Crediting**: Ensures content creators are credited for their work.
+- **STT Model Training & Evaluation**: Fine-tune and test STT models on Moroccan Darija.
+- **Hugging Face Space**: Provides an interactive interface to test the STT models.
+
+## Speech-to-Text (STT) Models
+
+This repository also includes code for fine-tuning and evaluating speech-to-text models on Moroccan Darija. The models are trained using [Whisper](https://openai.com/research/whisper) and other transformer-based architectures. The goal is to improve transcription accuracy for Moroccan Darija, including code-switching scenarios.
+
+## Test the STT Models
+
+A [Hugging Face Space](https://huggingface.co/spaces/atlasia/Moroccan-Fast-Speech-to-Text-Transcription) is available for testing the trained STT models interactively. You can upload your own audio clips and evaluate transcription quality in real-time!
 
 ## Requirements
 
@@ -14,12 +28,20 @@ pip install -r requirements.txt
 ```
 
 ## Usage
+### Data Collection
 Run the script to process all listed channels:
 ```bash
-python youtube_cc_by_scraper.py
+python data_collection/youtube_cc_by_scraper.py
+```
+
+### STT Model Training Collection
+Run the script to process all listed channels:
+```bash
+python train_model/main.py
 ```
 
 ## YouTube Channels List
+
 | Channel URL                                         | Description                                          | CC-BY | Scraped |
 |----------------------------------------------------|------------------------------------------------------|-------|---------|
 | https://www.youtube.com/@-ayaat5191                | Yassine El Amri talks in CC-BY                       | ✅    |  ✅ |
@@ -46,20 +68,22 @@ python youtube_cc_by_scraper.py
 | https://www.youtube.com/@Choumicha               | Moroccan cuisine in Darija                          |  ❌    | ❌      |
 
 ## Bad channels
-non-sense...
+
+Non-sense...
+
 | Channel URL                                         | Description                                          | CC-BY | Scraped |
 |----------------------------------------------------|------------------------------------------------------|-------|---------|
 | https://www.youtube.com/@SoufianeDanilo         | Sarcasm, Morocco news, funny content               | ✅    | ❌      |
+
 **Legend:**
 - ✅: Successfully scraped
 - ❌: Not scraped yet
 - On going: Script is running
 
-## Other data sources
-- https://huggingface.co/datasets/BrunoHays/wikitongues-darija?row=0: high quality, manually annotated but less than 10 minutes
+## Other Data Sources
 
-## License
-This project is under the MIT License. Only CC-BY licensed videos are downloaded to respect copyright laws.
+- [Wikitongues Darija Dataset](https://huggingface.co/datasets/BrunoHays/wikitongues-darija?row=0): High-quality, manually annotated dataset, but less than 10 minutes.
 
 ## Disclaimer
+
 Videos flagged as harmful or inappropriate are excluded from processing.
